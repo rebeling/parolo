@@ -1,14 +1,17 @@
 [project]
 description = "A version-controlled prompt system for LLM workflows."
 name = "parolo"
-version = "0.1.1"
+version = "0.2.0"
 authors = [{ name = "Matthias Rebel", email = "matthias.rebel@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["pytest>=8.4.1"]
+
+# 👉 pytest should NOT be a runtime dependency.
+# If you want Jinja rendering available, make it a runtime dep:
+dependencies = ["Jinja2>=3.1,<4"]
 
 [project.optional-dependencies]
-dev = ["pytest", "build", "ruff"]
+dev = ["pytest>=8.4.1", "build", "ruff"]
 
 [build-system]
 requires = ["setuptools>=61.0"]

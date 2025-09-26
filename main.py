@@ -1,25 +1,29 @@
-from parolo import Prompt
+from parolo import set_base_dir, prompts, Prompt # new + old
+
 
 def main():
-    Prompt.set_base_dir("./project-prompts")
+    path = "./project-prompts"
+
+    Prompt.set_base_dir(path) # old
+    set_base_dir(path) # new
 
     # example from readme
 
-    # Create a simple prompt
-    Prompt.create(name="summarize", prompt="Summarize this in three bullet points.")
+    # New, namespaced API
+    prompts.save("greeting", "Hello {{name}}!")
+    print(prompts.render("greeting", name="Matthias"))
 
-    # Create another version with different content
-    Prompt.create(name="summarize", prompt="Provide a concise summary in bullet points.")
+    # Old class API (back-compat, str.format)
+    Prompt.create("legacy", "Hi {name}")
+    print(Prompt.format_prompt("legacy", name="Matthias"))
 
     # List all versions for a prompt
-    versions = Prompt.list_versions("summarize")
+    versions = Prompt.list_versions("legacy")
     print(versions)  # ['v0001.txt', 'v0002.txt']
-
-    Prompt.create("greet", prompt="Hello, world!", metadata={"author": "demo", "type": "greeting"})
 
     # Get overview of all prompts
     overview = Prompt.overview()
-    print(overview)  # {'summarize': 2, 'greet': 1}
+    print(overview)  # {'greeting': 1, 'summarize': 1}
 
 
 if __name__ == "__main__":

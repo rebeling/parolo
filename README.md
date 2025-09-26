@@ -1,8 +1,25 @@
 # Parolo
 
-A version-controlled prompt system for LLM workflows. It enables you to:
-- **Automatically version prompts:** Each change creates a new version (e.g., `v0001.txt`, `v0002.txt`, etc.)
-- **Maintain organized prompt storage:** Prompts are stored in a configurable location.
+A tiny, file-based prompt store with automatic versioning.
+Simple defaults, zero infra, backward compatible with the original Prompt class.
+
+* Stores the current prompt in latest.txt
+* Creates immutable versions under versions/vNNNN.txt (+ vNNNN.json metadata)
+* Atomic writes so readers never see partial files
+* Optional function API with Jinja2 rendering
+* Works out of the box on a single machine or shared volume
+
+```python
+from parolo import prompts, Prompt  # new + old
+
+# New, namespaced API
+prompts.save("greeting", "Hello {{name}}!")
+print(prompts.render("greeting", name="Matthias"))
+
+# Old class API (back-compat, str.format)
+Prompt.create("legacy", "Hi {name}")
+print(Prompt.format_prompt("legacy", name="Matthias"))
+```
 
 ---
 
@@ -11,134 +28,55 @@ A version-controlled prompt system for LLM workflows. It enables you to:
 ```bash
 uv pip install parolo
 ```
+By default, parolo stores data in ~/.parolo/prompts/.
+Override with PAROLO_HOME=/path/to/dir.
 
-## Quick Start
+Or in code: from parolo import set_base_dir; set_base_dir("/path/to/dir")
 
-```py
-from parolo import Prompt
+---
 
-# Create a simple prompt
-Prompt.create(name="summarize", prompt="Summarize this in three bullet points.")
-
-# Create another version with different content
-Prompt.create(name="summarize", prompt="Provide a concise summary in bullet points.")
-
-# List all versions for a prompt
-versions = Prompt.list_versions("summarize")
-print(versions)  # ['v0001.txt', 'v0002.txt']
-
-Prompt.create(name="greet", prompt="Hello, world!", metadata={"author": "demo", "type": "greeting"})
-
-# Get overview of all prompts
-overview = Prompt.overview()
-print(overview)  # {'summarize': 2, 'greet': 1}
-```
-
-### Configuration
-
-By default, prompts are stored in `~/.parolo/prompts/`. You can customize this in several ways:
+## Listing & history
 
 ```python
-# Method 1: Using set_base_dir()
-Prompt.set_base_dir("./project-prompts")
+from parolo import prompts
 
-# Method 2: Environment variable
-# export PAROLO_HOME="./project-prompts"
+# All prompts (quick stats)
+print(prompts.list())
+# → [{'name': 'email_refund', 'versions': 3, 'has_latest': True, 'latest_version': 'v0003', ...}, ...]
+
+# All versions for one prompt (filenames)
+print(prompts.versions("email_refund"))
+# → ['v0001.txt', 'v0002.txt', 'v0003.txt']
+
+# With metadata (timestamp, hash, size, detected Jinja variables)
+print(prompts.versions("email_refund", with_meta=True))
+# → [{'file':'v0003.txt','version':'v0003','timestamp':'...','hash':'...','size':123,'line_count':3,'jinja_variables':['customer','order_id']}, ...]
+
+# Metadata for one version
+print(prompts.meta("email_refund", "v0001"))
 ```
 
+---
 
-### Advanced Usage
+## Hot reload (agents)
 
-Use Python string formatting for prompts with support for metadata and easy runtime content injection.
-
-```py
-from parolo import Prompt
-
-# Example of a complex multiline prompt
-EXAMPLE_PROMPT = """Review the following Python code for data handling, performance, and clarity.
-
-Focus on:
-- Data validation and safety
-- Efficiency for large datasets
-- Code readability
-
-Keep response under {max_tokens} tokens.
-
-Code:
-{code}
-"""
-
-# Create prompts for different use cases
-Prompt.create(
-    name="code_review_template",
-    prompt=EXAMPLE_PROMPT,
-    metadata={"author": "team", "type": "code_review", "complexity": "high"}
-)
-
-# Retrieve and use the stored prompt using Prompt methods
-latest_prompt = Prompt.get_prompt("code_review_template")
-
-# Use the prompt with actual code
-sample_code = """
-def calculate_total(items):
-    total = 0
-    for item in items:
-        total += item
-    return total
-"""
-
-# Format the prompt with the code using the built-in method
-formatted_prompt = Prompt.format_prompt("code_review_template", code=sample_code, max_tokens=300)
-print(formatted_prompt)
-
-# Or get a specific version
-version_prompt = Prompt.get_prompt("code_review_template", version="v0001")
-
-# Get and format a specific version
-formatted_v1 = Prompt.format_prompt("code_review_template", version="v0001", code=sample_code, max_tokens=300)
-
-# Example usage in an application
-def review_code(code: str, version: str = "latest") -> str:
-    """Review code using the stored prompt template"""
-    prompt = Prompt.format_prompt("code_review_template", version=version, code=code, max_tokens=300)
-    # Send to your LLM API here
-    return prompt
-
-# Use in your application
-result = review_code(sample_code)
-
-# Or use a specific version for reproducibility
-result_v1 = review_code(sample_code, version="v0001")
-```
-
-### Metadata and Version History
-
-Parolo stores rich metadata with each version, similar to git commits:
+Poll the file’s mtime token; reload when it changes.
 
 ```python
-from parolo import Prompt
+import time
+from parolo import token, get
 
-# Create prompt with custom metadata
-Prompt.create(
-    name="code_review",
-    prompt="Review the following code for security issues:\n\n{code}",
-    metadata={"author": "security_team", "category": "security", "priority": "high"}
-)
+name = "email_refund"
+t = token(name)
+tmpl = get(name)
 
-# List versions with metadata
-Prompt.list_versions("code_review", show_metadata=True)
-
-# Show version history (like git log)
-Prompt.log("code_review")
-
-# Get detailed version information
-Prompt.show_version_info("code_review", "v0001")
-
-# Retrieve metadata programmatically
-metadata = Prompt.get_metadata("code_review", "v0001")
-print(metadata["hash"])  # SHA-256 hash
-print(metadata["timestamp"])  # ISO format timestamp
-print(metadata["metadata"])  # Custom metadata
+while True:
+    time.sleep(1.0)
+    nt = token(name)
+    if nt != t:
+        t = nt
+        tmpl = get(name)  # reload latest.txt
+        # update your in-memory template
 ```
 
 ### File Structure with Metadata
