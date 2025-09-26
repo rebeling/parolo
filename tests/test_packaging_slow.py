@@ -1,9 +1,7 @@
 import os
 import subprocess
 import sys
-import tempfile
 import pytest
-from pathlib import Path
 
 pytestmark = pytest.mark.slow
 

@@ -1,5 +1,4 @@
 # tests/test_namespaced_api.py
-import time
 import pytest
 
 try:

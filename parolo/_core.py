@@ -1,5 +1,8 @@
 from __future__ import annotations
-import os, json, tempfile, hashlib
+import os
+import json
+import tempfile
+import hashlib
 from pathlib import Path
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -46,7 +49,8 @@ def put(name: str, text: str, *, metadata: Optional[Dict[str, Any]] = None) -> D
     Write a new versions/vNNNN.txt + vNNNN.json only if content changed.
     """
     latest = _latest(name)
-    vdir = _vdir(name); vdir.mkdir(parents=True, exist_ok=True)
+    vdir = _vdir(name)
+    vdir.mkdir(parents=True, exist_ok=True)
 
     existing = _vfiles(name)
     last_hash = _sha256(existing[-1].read_text(encoding="utf-8")) if existing else None

@@ -80,12 +80,17 @@ def test_read_with_fallback(tmp_path, monkeypatch):
     setup_tmp(monkeypatch, tmp_path)
 
     # No prompt exists; fallback supplies content
-    fb = lambda: "fallback-text"
+    def fb():
+        return "fallback-text"
+
     assert tenants.read("no", "such", fallback=fb) == "fallback-text"
 
     # If fallback returns None, should raise
+    def fb_none():
+        return None
+
     with pytest.raises(Exception):
-        tenants.read("no", "such", fallback=lambda: None)
+        tenants.read("no", "such", fallback=fb_none)
 
 
 def test_read_cached_updates_on_change(tmp_path, monkeypatch):
